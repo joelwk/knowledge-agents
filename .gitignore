@@ -1,5 +1,25 @@
+# Large data files but keep directories
+*.csv
+*.parquet
+*.h5
+*.pkl
+*.model
+*.npy
+*.npz
+
+# Keep directory structure but ignore contents
+data/*
+!data/.gitkeep
+data-azure/*
+!data-azure/.gitkeep
+s3-data/*
+!s3-data/.gitkeep
+
 # Config files with sensitive information
 config.ini
+**/config.ini
+*.env
+.env
 
 # Python
 __pycache__/
@@ -25,17 +45,23 @@ var/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb_checkpoints/
 
 # Virtual Environment
 venv/
 ENV/
+.env/
+.venv/
 
 # IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
+*.swn
+.vs/
 
 # OS specific files
 .DS_Store
 Thumbs.db
+*.log
