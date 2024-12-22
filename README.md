@@ -12,7 +12,25 @@ The project supports multiple AI model providers:
 - **Venice.AI**: Additional model provider for completions
   - Optional: `VENICE_API_KEY`, `VENICE_MODEL`
 
-Configure your preferred provider in `config.ini`. The system will automatically fall back to OpenAI if the primary provider fails.
+Configure your preferred provider in `config.ini`. The system features automatic fallback to OpenAI if the primary provider fails, ensuring robust operation.
+
+## Technical Features
+### Model Operations
+- **Multi-Provider Support**: Seamless integration with OpenAI, Grok, and Venice.AI
+- **Automatic Fallback**: Graceful degradation to OpenAI if primary provider fails
+- **Concurrent Processing**: Efficient parallel processing of text chunks
+- **Context-Aware Chunking**: Intelligent text segmentation preserving semantic boundaries
+
+### Inference Operations
+- **Embedding Management**: Support for multiple embedding providers with automatic caching
+- **Smart Retrieval**: Semantic search with duplicate detection and automatic expansion
+- **Batch Processing**: Efficient handling of large text volumes through batched operations
+- **Progress Tracking**: Built-in progress monitoring for long-running operations
+
+### Error Handling
+- **Retry Mechanism**: Exponential backoff for API calls
+- **Graceful Degradation**: Automatic fallback to alternative providers
+- **Comprehensive Logging**: Detailed error tracking and operation monitoring
 
 ## Running in Jupyter Notebook (knowledge_workbench)
 1. Clone the repository:
@@ -66,5 +84,33 @@ For data collection functionality, you can utilize the data gathering tools from
 2. Navigate to the gather.py script
 3. Follow the script's documentation for standalone data gathering functionality
 
+## Prompt System
+The `prompt.yaml` file is a crucial component that defines the system's interaction patterns and analytical capabilities. It contains two main sections:
+
+### System Prompts
+1. **Objective Analysis**
+   - Handles complex forecasting tasks combining numerical and textual data
+   - Performs structured analysis including numerical validation, contextual integration, and pattern recognition
+   - Generates multimodal forecasts with confidence metrics and contextual validation
+
+2. **Generate Chunks**
+   - Specializes in processing and analyzing text segments
+   - Performs temporal analysis, information extraction, and context generation
+   - Maintains structured output format for consistency
+
+### User Prompts
+1. **Summary Generation**
+   - Templates for comprehensive summaries with forecasting capabilities
+   - Integrates numerical data with contextual information
+   - Includes historical analysis, forecast generation, and risk assessment
+
+2. **Text Chunk Summary**
+   - Templates for analyzing discrete text segments
+   - Extracts time series data and key information
+   - Generates domain context, background knowledge, and assumptions
+
+Each prompt type is designed to maintain temporal awareness, preserve numerical precision, and provide comprehensive contextual analysis. The system uses these prompts to ensure consistent, high-quality output across different analytical tasks.
+
 ## References
 - Data Gathering Lambda: [chanscope-lambda](https://github.com/joelwk/chanscope-lambda)
+- Prompt Engineering Research: [Temporal-Aware Language Models for Temporal Knowledge Graph Question Answering](https://arxiv.org/pdf/2410.18959) - Used for designing temporal-aware prompts and multimodal forecasting capabilities

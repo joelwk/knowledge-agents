@@ -3,9 +3,7 @@ import json
 import boto3
 import pandas as pd
 import logging
-import configparser
 from dateutil import tz
-from botocore.exceptions import BotoCoreError, ClientError
 from azure.storage.blob import BlobServiceClient
 from utils import read_config, setup_logging
 

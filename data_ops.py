@@ -1,21 +1,10 @@
 import pandas as pd
-import numpy as np
 import os
-import pyarrow.parquet as pq
-import random
-import json
 import shutil
-from typing import Dict
 from data_processing.sampler import Sampler
 from data_processing.cloud_handler import load_all_csv_data_from_s3
 import configparser 
-from tenacity import retry, wait_random_exponential, stop_after_attempt
 import pandas as pd
-import numpy as np
-import openai
-from openai import OpenAI
-from IPython.display import display, Markdown, Latex
-
 from stratified_ops import split_dataframe
 
 config_path = './config_template.ini'
@@ -28,12 +17,11 @@ CONFIGS = {
     'ALL_DATA_STRATIFIED_PATH': config['data']['ALL_DATA_STRATIFIED_PATH'],
     'KNOWLEDGE_BASE_PATH': config['data']['KNOWLEDGE_BASE'],
     'SAMPLE_SIZE': config['configuration_params']['SAMPLE_SIZE'],
-    'FILTER_DATE': config['configuration_params']['FILTER_DATE']}
+    'FILTER_DATE': config['configuration_params']['FILTER_DATE'],}
     
 def remove_directory_files(directory_path: str) -> None:
     """
     Removes all files in the specified directory.
-    
     Args:
     directory_path (str): The path to the directory.
     """
@@ -54,7 +42,6 @@ def remove_directory_files(directory_path: str) -> None:
 def create_directory_if_not_exists(path: str) -> None:
     """
     Creates a directory if it does not already exist.
-    
     Args:
     path (str): The path to the directory.
     """
@@ -68,7 +55,6 @@ def create_directory_if_not_exists(path: str) -> None:
 def load_and_save_new_data(latest_date_processed: str, output_path: str) -> None:
     """
     Loads new data from S3, saves it to a CSV file.
-    
     Args:
     latest_date_processed (str): The latest date processed.
     output_path (str): The output path for the CSV file.
@@ -79,7 +65,6 @@ def load_and_save_new_data(latest_date_processed: str, output_path: str) -> None
 def stratify_data(input_path: str, config_path: str, filter_date: str, time_column: str, strata_column: str, initial_sample_size: int, section: str) -> pd.DataFrame:
     """
     Loads data, stratifies it, and returns the stratified sample.
-    
     Args:
     input_path (str): The input path to the data CSV file.
     config_path (str): The path to the configuration file.

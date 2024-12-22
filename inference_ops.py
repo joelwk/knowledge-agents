@@ -5,8 +5,7 @@ import tiktoken
 import concurrent.futures
 from tqdm import tqdm
 from typing import List, Dict, Any, Optional, Tuple
-import configparser
-from model_ops import KnowledgeAgent, load_config, EmbeddingProvider
+from model_ops import KnowledgeAgent, load_config, ModelProvider, ModelOperation
 from embedding_ops import get_relevant_content
 import logging
 import numpy as np
@@ -22,13 +21,13 @@ def strings_ranked_by_relatedness(
     query: str,
     df: pd.DataFrame,
     top_n: int = 100,
-    embedding_provider: Optional[str] = None
+    provider: Optional[ModelProvider] = None
 ) -> List[str]:
     """Returns a list of strings sorted from most related to least, based on cosine similarity."""
     try:
         query_embedding_response = agent.embedding_request(
             text=query,
-            provider=embedding_provider
+            provider=provider
         )
         query_embedding = query_embedding_response.embedding
         
@@ -103,34 +102,29 @@ def create_chunks(text: str, n: int, tokenizer=None) -> List[Dict[str, Any]]:
                     "text": ' '.join(temp_chunk),
                     "token_count": temp_length
                 })
-                
         # If adding this sentence would exceed chunk size, start new chunk
         elif current_length + sentence_length > n:
             if current_chunk:
                 chunks.append({
                     "text": ' '.join(current_chunk),
-                    "token_count": current_length
-                })
+                    "token_count": current_length})
             current_chunk = [sentence]
             current_length = sentence_length
         else:
             current_chunk.append(sentence)
             current_length += sentence_length
-    
     # Add final chunk if exists
     if current_chunk:
         chunks.append({
             "text": ' '.join(current_chunk),
-            "token_count": current_length
-        })
-    
+            "token_count": current_length})
     return chunks
 
 def retrieve_unique_strings(
     query: str,
     library_df: pd.DataFrame,
     required_count: int = 25,
-    embedding_provider: Optional[str] = None
+    provider: Optional[ModelProvider] = None
 ) -> List[str]:
     """Fetches a specified number of unique top strings, expanding retrieval if duplicates exist."""
     try:
@@ -138,25 +132,19 @@ def retrieve_unique_strings(
             query,
             library_df,
             top_n=required_count * 2,  # Get more initially to account for duplicates
-            embedding_provider=embedding_provider
-        )
-        
+            provider=provider)
         # Use dict to maintain order while removing duplicates
         unique_strings = list(dict.fromkeys(strings))
-        
         if len(unique_strings) < required_count:
             logger.info(f"Only {len(unique_strings)} unique strings found, retrieving additional...")
             more_strings = strings_ranked_by_relatedness(
                 query,
                 library_df,
                 top_n=required_count * 4,  # Try with even more
-                embedding_provider=embedding_provider
-            )
+                provider=provider)
             # Extend unique strings while preserving order
             unique_strings = list(dict.fromkeys(unique_strings + more_strings))
-        
         return unique_strings[:required_count]
-        
     except Exception as e:
         logger.error(f"Error retrieving unique strings: {e}")
         raise
@@ -166,26 +154,25 @@ async def summarize_text(
     knowledge_base_path: str = ".",
     batch_size: int = 5,
     max_workers: Optional[int] = None,
-    embedding_provider: Optional[str] = None
+    providers: Optional[Dict[ModelOperation, ModelProvider]] = None
 ) -> Tuple[List[Dict[str, Any]], str]:
-    """Summarizes related texts from the knowledge base."""
-    summary_prompt = """Summarize this text of social media dialog. Extract any key points with reasoning.\n\nContent:"""
-    
+    """Summarizes related texts from the knowledge base with temporal forecasting."""
     try:
         # Load and prepare knowledge base
         library_df = pd.read_csv(knowledge_base_path)
         if len(library_df) == 0:
             logger.info("No papers found, downloading first.")
-            get_relevant_content(query)
+            get_relevant_content(query, batch_size=batch_size)
             library_df = pd.read_csv(knowledge_base_path)
         
         library_df.columns = ["thread_id", "posted_date_time", "text", "embedding"]
         
         # Get unique related strings
+        embedding_provider = providers.get(ModelOperation.EMBEDDING) if providers else None
         unique_strings = retrieve_unique_strings(
             query,
             library_df,
-            embedding_provider=embedding_provider
+            provider=embedding_provider
         )
         
         logger.info("Processing text chunks")
@@ -208,6 +195,8 @@ async def summarize_text(
             max_workers = min(8, len(all_chunks))
         
         summaries = []
+        contexts = []
+        chunk_provider = providers.get(ModelOperation.CHUNK_GENERATION) if providers else None
         
         # Process chunks in batches
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -218,7 +207,7 @@ async def summarize_text(
                 future = executor.submit(
                     agent.generate_chunks,
                     chunk["text"],
-                    summary_prompt
+                    provider=chunk_provider
                 )
                 futures.append(future)
             
@@ -226,8 +215,10 @@ async def summarize_text(
             for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
                 try:
                     result = future.result()
-                    if result and len(result.strip()) > 0:
-                        summaries.append(result)
+                    if result["analysis"].strip():
+                        summaries.append(result["analysis"])
+                    if result["context"].strip():
+                        contexts.append(result["context"])
                 except Exception as e:
                     logger.error(f"Error processing chunk: {e}")
                     continue
@@ -236,12 +227,19 @@ async def summarize_text(
             logger.warning("No summaries generated")
             return all_chunks, ""
         
-        # Combine summaries and generate final summary
+        # Combine summaries and contexts
         combined_summary = "\n\n".join(summaries)
+        combined_context = "\n\n".join(contexts)
         
         try:
             logger.info("Generating final summary")
-            response = agent.generate_summary(query, combined_summary)
+            summary_provider = providers.get(ModelOperation.SUMMARIZATION) if providers else None
+            response = agent.generate_summary(
+                query, 
+                combined_summary,
+                context=combined_context,
+                provider=summary_provider
+            )
             return all_chunks, response
             
         except Exception as e:

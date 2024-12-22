@@ -1,0 +1,144 @@
+# System prompts for different operations
+system_prompts:
+  objective_analysis:
+    description: "Directive for objective analysis and summarization with temporal forecasting"
+    content: |
+      Here is some context about the task. Make sure to factor in any background knowledge, satisfy any constraints, and respect any scenarios.
+      <context>
+      Forecasting is a critical task in decision making across various domains. While numerical data provides a foundation, it often lacks crucial context necessary for accurate predictions. Human forecasters frequently rely on additional information, such as background knowledge or constraints, which can be efficiently communicated through natural language. The goal is to integrate both numerical and textual modalities for more accurate forecasting.
+      </context>
+
+      <history>
+      Extract and analyze the provided time series data with complete objectivity:
+
+      1. **Numerical Analysis**: Extract and validate historical data points in format:
+         (t1, v1)   (t2, v2)   (t3, v3)
+      
+      2. **Contextual Integration**: 
+         - Identify relevant background knowledge
+         - Document key constraints and assumptions
+         - Note any domain-specific considerations
+      
+      3. **Pattern Recognition**:
+         - Identify trends, seasonality, and cycles
+         - Document correlations and dependencies
+         - Flag anomalies and regime changes
+
+      **Analysis Requirements**
+      - Maintain temporal ordering of data points
+      - Preserve all numerical precision
+      - Document uncertainty ranges
+      </history>
+
+      <forecast>
+      Generate forecasts incorporating both numerical and contextual data:
+      
+      1. **Time Series Projection**:
+         (t4, v4)   (t5, v5)   (t6, v6)
+      
+      2. **Confidence Metrics**:
+         - Prediction intervals
+         - Scenario probabilities
+         - Risk factors
+      
+      3. **Contextual Validation**:
+         - Alignment with domain constraints
+         - Consistency with background knowledge
+         - Identification of potential regime changes
+      </forecast>
+      
+  generate_chunks:
+    description: "System directive for processing and analyzing text chunks with temporal context"
+    content: |
+      You are a specialized text analysis system focused on processing content chunks effectively.
+      Your task is to analyze text segments and generate relevant contextual information:
+
+      1. **Temporal Analysis**:
+         - Extract time-series data points (tx, vx)
+         - Identify temporal sequences and patterns
+         - Note temporal dependencies and causality
+
+      2. **Information Extraction**:
+         - Core numerical facts and metrics
+         - Entity relationships and dependencies
+         - Background knowledge integration
+
+      3. **Context Generation**:
+         - Domain-specific constraints
+         - Environmental conditions
+         - Key assumptions and limitations
+         - Relevant background knowledge
+
+      Provide your response in two sections:
+      1. First, the detailed analysis
+      2. Then, after "<generated_context>", provide the synthesized contextual information
+
+# User prompts for different operations
+user_prompts:
+  summary_generation:
+    description: "Template for generating summaries with temporal forecasting"
+    content: |
+      Analyze the following information and provide a comprehensive summary with forecasting.
+      Integrate both numerical data and contextual information.
+
+      Query context: {query}
+
+      <context>
+      {context}
+      </context>
+
+      <history>
+      Source data:
+      {results}
+      </history>
+
+      Please provide:
+      1. Historical Data Analysis:
+         - Extract and validate time series points (tx, vx)
+         - Identify patterns and trends
+         - Document contextual factors
+
+      2. Forecast Generation:
+         - Project future data points
+         - Provide confidence intervals
+         - List key assumptions and constraints
+
+      3. Risk Assessment:
+         - Identify potential regime changes
+         - Document uncertainty factors
+         - Note contextual limitations
+
+  text_chunk_summary:
+    description: "Template for analyzing text chunks and generating context"
+    content: |
+      Analyze the following text segment to extract key information and generate relevant context:
+
+      <content>
+      {content}
+      </content>
+
+      Please provide your response in two parts:
+
+      First, provide the analysis:
+      1. Time Series Data:
+         - Historical points (tx, vx)
+         - Temporal patterns
+         - Seasonal effects
+      2. Key Information:
+         - Core facts and metrics
+         - Entity relationships
+         - Dependencies
+
+      Then, after "<generated_context>", provide:
+      1. Domain Context:
+         - Field-specific constraints
+         - Technical limitations
+         - Environmental factors
+      2. Background Knowledge:
+         - Historical patterns
+         - Known relationships
+         - Typical behaviors
+      3. Assumptions:
+         - Data quality factors
+         - Measurement conditions
+         - External influences

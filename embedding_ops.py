@@ -1,15 +1,10 @@
-import csv
 from csv import writer
-import os
-import glob
-import configparser
-from model_ops import KnowledgeAgent, load_config, EmbeddingProvider
+from model_ops import KnowledgeAgent, load_config, ModelProvider, ModelOperation
 import logging
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 
 # Initialize logging
@@ -74,44 +69,23 @@ def load_data_from_csvs(directory: str) -> List[Article]:
     
     return article_list
 
-@retry(wait=wait_random_exponential(min=1, max=40), stop=stop_after_attempt(3))
-def process_article_batch(
-    articles: List[Article],
-    batch_size: int = 100,
-    embedding_provider: Optional[str] = None
-) -> List[List]:
-    """Process a batch of articles to get embeddings."""
-    results = []
-    
-    for i in range(0, len(articles), batch_size):
-        batch = articles[i:i + batch_size]
-        try:
-            # Get embeddings for all texts in batch at once
-            texts = [article.text_clean for article in batch]
-            response = agent.embedding_request(texts, embedding_provider)
-            
-            # Create results
-            for article, embedding in zip(batch, response.embedding):
-                results.append([
-                    article.thread_id,
-                    article.posted_date_time,
-                    article.text_clean,
-                    embedding,
-                ])
-                
-        except Exception as e:
-            logger.error(f"Error processing batch {i//batch_size}: {str(e)}")
-            raise
-    
-    return results
-
 def get_relevant_content(
     library: str = '.',
     knowledge_base: str = '.',
     batch_size: int = 100,
-    embedding_provider: Optional[str] = None
+    provider: Optional[ModelProvider] = None
 ) -> None:
-    """Get and store embeddings for articles with improved error handling and batching."""
+    """Get and store embeddings for articles using the specified embedding provider.
+    
+    This function focuses solely on generating embeddings for similarity search.
+    It should be used with embedding-specific models (OpenAI or Grok embedding models).
+    
+    Args:
+        library: Path to the source data directory
+        knowledge_base: Path to store the embedded knowledge base
+        batch_size: Size of batches for processing
+        provider: Embedding model provider (OpenAI or Grok)
+    """
     kb_path = Path(knowledge_base)
     
     # Check if knowledge base already exists and has content
@@ -119,7 +93,7 @@ def get_relevant_content(
         logger.info(f"Knowledge base '{knowledge_base}' already exists. Skipping.")
         return
     
-    logger.info("Creating knowledge base...")
+    logger.info("Creating knowledge base with embeddings...")
     
     try:
         loaded_articles = load_data_from_csvs(library)
@@ -148,7 +122,7 @@ def get_relevant_content(
                 results = process_article_batch(
                     batch,
                     batch_size=batch_size,
-                    embedding_provider=embedding_provider
+                    provider=provider
                 )
                 
                 # Write batch results
@@ -160,3 +134,37 @@ def get_relevant_content(
     except Exception as e:
         logger.error(f"Error creating knowledge base: {str(e)}")
         raise
+
+@retry(wait=wait_random_exponential(min=1, max=40), stop=stop_after_attempt(3))
+def process_article_batch(
+    articles: List[Article],
+    batch_size: int = 100,
+    provider: Optional[ModelProvider] = None
+) -> List[List]:
+    """Process a batch of articles to get embeddings using the specified provider.
+    
+    This function should only be used with embedding-specific models.
+    """
+    results = []
+    
+    for i in range(0, len(articles), batch_size):
+        batch = articles[i:i + batch_size]
+        try:
+            # Get embeddings for all texts in batch at once
+            texts = [article.text_clean for article in batch]
+            response = agent.embedding_request(texts, provider)
+            
+            # Create results
+            for article, embedding in zip(batch, response.embedding):
+                results.append([
+                    article.thread_id,
+                    article.posted_date_time,
+                    article.text_clean,
+                    embedding,
+                ])
+                
+        except Exception as e:
+            logger.error(f"Error processing batch {i//batch_size}: {str(e)}")
+            raise
+    
+    return results
