@@ -19,7 +19,7 @@ def setup_logging(log_level=logging.INFO, log_file='generic_log.log'):
     
 setup_logging(log_file='utility_func.log')
 
-def read_config(section="params", config_path='./../config_template.ini'):
+def read_config(section="params", config_path='./../config.ini'):
     if not os.path.exists(config_path):
         print(f"Configuration file {config_path} not found.")
         raise FileNotFoundError(f"Configuration file not found: {config_path}")

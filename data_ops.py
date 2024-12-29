@@ -7,7 +7,7 @@ import configparser
 import pandas as pd
 from stratified_ops import split_dataframe
 
-config_path = './config_template.ini'
+config_path = './config.ini'
 config = configparser.ConfigParser()
 config.read(config_path)
 
@@ -15,7 +15,6 @@ CONFIGS = {
     'ROOT_PATH': config['data']['ROOT_PATH'],
     'ALL_DATA': config['data']['ALL_DATA'],
     'ALL_DATA_STRATIFIED_PATH': config['data']['ALL_DATA_STRATIFIED_PATH'],
-    'KNOWLEDGE_BASE_PATH': config['data']['KNOWLEDGE_BASE'],
     'SAMPLE_SIZE': config['configuration_params']['SAMPLE_SIZE'],
     'FILTER_DATE': config['configuration_params']['FILTER_DATE'],}
     

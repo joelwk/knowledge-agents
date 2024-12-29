@@ -1,7 +1,25 @@
-# knowledge-agents
+# Knowledge Agents
 
 ## Description
-A repository focused on implementing knowledge-based agents for data processing and analysis. This project provides tools and utilities for building intelligent agents that can process, analyze, and derive insights from various data sources.
+A text analysis framework implementing a three-stage pipeline architecture for processing and analyzing temporal data. The system combines multiple AI models (OpenAI, Grok, Venice.AI) to perform embedding generation, chunk analysis, and summary generation, with particular emphasis on temporal context preservation and semantic analysis.
+
+### Key Capabilities
+- **Temporal Intelligence**: 
+  - Precise datetime handling across timezones
+  - Time-aware context generation
+  - Historical pattern analysis
+  
+- **Distributed Processing**:
+  - Multi-provider model orchestration
+  - Concurrent chunk processing
+  - Batched operations with progress tracking
+
+- **Adaptive Analysis**:
+  - Dynamic provider selection
+  - Automatic fallback mechanisms
+  - Environment-aware execution (notebook/terminal)
+
+The framework is designed for robust handling of large-scale text analysis tasks, with built-in support for data validation, error recovery, and detailed operational logging. It provides a flexible foundation for building knowledge processing applications with temporal awareness.
 
 ## Supported Models
 The project supports multiple AI model providers:
@@ -15,22 +33,45 @@ The project supports multiple AI model providers:
 Configure your preferred provider in `config.ini`. The system features automatic fallback to OpenAI if the primary provider fails, ensuring robust operation.
 
 ## Technical Features
+
 ### Model Operations
-- **Multi-Provider Support**: Seamless integration with OpenAI, Grok, and Venice.AI
-- **Automatic Fallback**: Graceful degradation to OpenAI if primary provider fails
-- **Concurrent Processing**: Efficient parallel processing of text chunks
-- **Context-Aware Chunking**: Intelligent text segmentation preserving semantic boundaries
+- **Pipeline Architecture**:
+  - Embedding Generation (OpenAI/Grok)
+  - Chunk Analysis (OpenAI/Grok/Venice)
+  - Summary Generation with temporal context
+- **Provider Integration**:
+  - Dynamic model selection and fallback
+  - Standardized cross-provider responses
+  - Concurrent batch processing
 
-### Inference Operations
-- **Embedding Management**: Support for multiple embedding providers with automatic caching
-- **Smart Retrieval**: Semantic search with duplicate detection and automatic expansion
-- **Batch Processing**: Efficient handling of large text volumes through batched operations
-- **Progress Tracking**: Built-in progress monitoring for long-running operations
+### Data Processing
+- **Time-Aware Analysis**:
+  - Historical pattern recognition
+  - Temporal context preservation
+- **Content Management**:
+  - Semantic chunking with quality thresholds
+  - Duplicate detection and filtering
+  - Multi-format data handling (CSV/Parquet/Excel)
 
-### Error Handling
-- **Retry Mechanism**: Exponential backoff for API calls
-- **Graceful Degradation**: Automatic fallback to alternative providers
-- **Comprehensive Logging**: Detailed error tracking and operation monitoring
+### Runtime Features
+- **Adaptive Execution**:
+  - Environment-aware (Notebook/Terminal)
+  - Async processing with progress tracking
+  - Configurable worker pools
+- **Error Recovery**:
+  - Exponential backoff retries
+  - Provider fallback chains
+  - Comprehensive logging system
+
+### Analysis Capabilities
+- **Signal Processing**:
+  - Semantic search and retrieval
+  - Pattern detection and analysis
+  - Multi-source data integration
+- **Contextual Analysis**:
+  - Thread activity monitoring
+  - Impact assessment metrics
+  - Narrative evolution tracking
 
 ## Running in Jupyter Notebook (knowledge_workbench)
 1. Clone the repository:
@@ -68,7 +109,7 @@ Configure your preferred provider in `config.ini`. The system features automatic
    ```
 
 3. Configure your model providers:
-   - Copy `config_template.ini` to `config.ini`
+   - Update `config_template.ini`
    - Add your API keys and model preferences
 
 4. Run the main script:
@@ -113,4 +154,4 @@ Each prompt type is designed to maintain temporal awareness, preserve numerical 
 
 ## References
 - Data Gathering Lambda: [chanscope-lambda](https://github.com/joelwk/chanscope-lambda)
-- Prompt Engineering Research: [Temporal-Aware Language Models for Temporal Knowledge Graph Question Answering](https://arxiv.org/pdf/2410.18959) - Used for designing temporal-aware prompts and multimodal forecasting capabilities
+- Prompt Engineering Research: [Temporal-Aware Language Models for Temporal Knowledge Graph Question Answering](https://arxiv.org/pdf/2410.18959); used for designing temporal-aware prompts and multimodal forecasting capabilities

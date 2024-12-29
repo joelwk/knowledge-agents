@@ -30,7 +30,7 @@ punctuation_regex = re.compile(f"([{string.punctuation}])")
 non_alphanumeric_regex = re.compile(r'[^a-zA-Z0-9.,!?\' ]')
 punctuation_regex = re.compile(f"([{string.punctuation}])")
 contraction_mapping = pd.read_json('./data_processing/contraction_mapping.json', typ='series').to_dict()
-config_path='./config_template.ini'
+config_path='./config.ini'
 config_params = read_config(section="sampling", config_path=config_path)
    
 wiki_markup_regex = re.compile(
@@ -94,3 +94,32 @@ def remove_profanity(text):
   words = text.split()
   cleaned_words = [("*" * len(word)) if profanity.contains_profanity(word) else word for word in words]
   return " ".join(cleaned_words)
+
+def is_valid_chunk(text: str) -> bool:
+    """Check if a chunk has enough meaningful content."""
+    # Remove XML tags and whitespace
+    content = text.split("<content>")[-1].split("</content>")[0].strip()
+    
+    # Minimum requirements
+    min_words = 5
+    min_chars = 20
+    
+    # Count actual words (excluding common noise)
+    words = [w for w in content.split() if len(w) > 2]  # Filter out very short words
+    
+    return len(words) >= min_words and len(content) >= min_chars
+
+def clean_chunk_text(text: str) -> str:
+    """Clean and format chunk text to remove excessive whitespace."""
+    lines = text.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if line and not line.isspace():
+            if any(tag in line for tag in ['<temporal_context>', '</temporal_context>', '<content>', '</content>']):
+                cleaned_lines.append(line)
+            else:
+                cleaned_lines.append(line.strip())
+    
+    return '\n'.join(cleaned_lines)

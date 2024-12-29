@@ -9,3 +9,4 @@ pydantic>=2.0.0
 jupyter>=1.0.0
 configparser>=5.3.0
 pathlib>=1.0.1 
+ratelimit>=2.2.1

@@ -6,14 +6,16 @@ import concurrent.futures
 from tqdm import tqdm
 from typing import List, Dict, Any, Optional, Tuple
 from model_ops import KnowledgeAgent, load_config, ModelProvider, ModelOperation
+from data_processing.processing import is_valid_chunk, clean_chunk_text
 from embedding_ops import get_relevant_content
 import logging
 import numpy as np
+import json
 
 # Initialize logging
 logger = logging.getLogger(__name__)
 
-config_path = './config_template.ini'
+config_path = './config.ini'
 model_config, app_config = load_config(config_path=config_path)
 agent = KnowledgeAgent(model_config)
 
@@ -23,7 +25,7 @@ def strings_ranked_by_relatedness(
     top_n: int = 100,
     provider: Optional[ModelProvider] = None
 ) -> List[str]:
-    """Returns a list of strings sorted from most related to least, based on cosine similarity."""
+    """Returns a list of strings sorted from most related to least."""
     try:
         query_embedding_response = agent.embedding_request(
             text=query,
@@ -44,11 +46,40 @@ def strings_ranked_by_relatedness(
         # Get indices of top N similar items
         top_indices = np.argsort(similarities)[::-1][:top_n]
         
-        return df.iloc[top_indices]["text"].tolist()
+        return df.iloc[top_indices][["text", "thread_id", "posted_date_time"]].to_dict('records')
         
     except Exception as e:
         logger.error(f"Error ranking strings by relatedness: {e}")
         raise
+
+def is_valid_chunk(text: str) -> bool:
+    """Check if a chunk has enough meaningful content."""
+    # Remove XML tags and whitespace
+    content = text.split("<content>")[-1].split("</content>")[0].strip()
+    
+    # Minimum requirements
+    min_words = 5
+    min_chars = 20
+    
+    # Count actual words (excluding common noise)
+    words = [w for w in content.split() if len(w) > 2]  # Filter out very short words
+    
+    return len(words) >= min_words and len(content) >= min_chars
+
+def clean_chunk_text(text: str) -> str:
+    """Clean and format chunk text to remove excessive whitespace."""
+    lines = text.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if line and not line.isspace():
+            if any(tag in line for tag in ['<temporal_context>', '</temporal_context>', '<content>', '</content>']):
+                cleaned_lines.append(line)
+            else:
+                cleaned_lines.append(line.strip())
+    
+    return '\n'.join(cleaned_lines)
 
 def create_chunks(text: str, n: int, tokenizer=None) -> List[Dict[str, Any]]:
     """Creates chunks of text, preserving sentence boundaries where possible."""
@@ -71,10 +102,12 @@ def create_chunks(text: str, n: int, tokenizer=None) -> List[Dict[str, Any]]:
         if sentence_length > n:
             # If we have a current chunk, add it first
             if current_chunk:
-                chunks.append({
-                    "text": ' '.join(current_chunk),
-                    "token_count": current_length
-                })
+                chunk_text = ' '.join(current_chunk)
+                if len(chunk_text) >= 20:  # Basic length check
+                    chunks.append({
+                        "text": chunk_text,
+                        "token_count": current_length
+                    })
                 current_chunk = []
                 current_length = 0
             
@@ -87,10 +120,12 @@ def create_chunks(text: str, n: int, tokenizer=None) -> List[Dict[str, Any]]:
                 word_tokens = tokenizer.encode(word + ' ')
                 if temp_length + len(word_tokens) > n:
                     if temp_chunk:
-                        chunks.append({
-                            "text": ' '.join(temp_chunk),
-                            "token_count": temp_length
-                        })
+                        chunk_text = ' '.join(temp_chunk)
+                        if len(chunk_text) >= 20:  # Basic length check
+                            chunks.append({
+                                "text": chunk_text,
+                                "token_count": temp_length
+                            })
                     temp_chunk = [word]
                     temp_length = len(word_tokens)
                 else:
@@ -98,43 +133,61 @@ def create_chunks(text: str, n: int, tokenizer=None) -> List[Dict[str, Any]]:
                     temp_length += len(word_tokens)
             
             if temp_chunk:
-                chunks.append({
-                    "text": ' '.join(temp_chunk),
-                    "token_count": temp_length
-                })
+                chunk_text = ' '.join(temp_chunk)
+                if len(chunk_text) >= 20:  # Basic length check
+                    chunks.append({
+                        "text": chunk_text,
+                        "token_count": temp_length
+                    })
         # If adding this sentence would exceed chunk size, start new chunk
         elif current_length + sentence_length > n:
             if current_chunk:
-                chunks.append({
-                    "text": ' '.join(current_chunk),
-                    "token_count": current_length})
+                chunk_text = ' '.join(current_chunk)
+                if len(chunk_text) >= 20:  # Basic length check
+                    chunks.append({
+                        "text": chunk_text,
+                        "token_count": current_length
+                    })
             current_chunk = [sentence]
             current_length = sentence_length
         else:
             current_chunk.append(sentence)
             current_length += sentence_length
+            
     # Add final chunk if exists
     if current_chunk:
-        chunks.append({
-            "text": ' '.join(current_chunk),
-            "token_count": current_length})
+        chunk_text = ' '.join(current_chunk)
+        if len(chunk_text) >= 20:  # Basic length check
+            chunks.append({
+                "text": chunk_text,
+                "token_count": current_length
+            })
     return chunks
 
 def retrieve_unique_strings(
     query: str,
     library_df: pd.DataFrame,
-    required_count: int = 25,
+    required_count: int = 100,
     provider: Optional[ModelProvider] = None
-) -> List[str]:
-    """Fetches a specified number of unique top strings, expanding retrieval if duplicates exist."""
+) -> List[Dict[str, Any]]:
+    """Fetches a specified number of unique top strings."""
     try:
         strings = strings_ranked_by_relatedness(
             query,
             library_df,
             top_n=required_count * 2,  # Get more initially to account for duplicates
             provider=provider)
+        
         # Use dict to maintain order while removing duplicates
-        unique_strings = list(dict.fromkeys(strings))
+        seen = set()
+        unique_strings = []
+        for s in strings:
+            if s["thread_id"] not in seen:
+                seen.add(s["thread_id"])
+                unique_strings.append(s)
+                if len(unique_strings) >= required_count:
+                    break
+                    
         if len(unique_strings) < required_count:
             logger.info(f"Only {len(unique_strings)} unique strings found, retrieving additional...")
             more_strings = strings_ranked_by_relatedness(
@@ -142,9 +195,16 @@ def retrieve_unique_strings(
                 library_df,
                 top_n=required_count * 4,  # Try with even more
                 provider=provider)
-            # Extend unique strings while preserving order
-            unique_strings = list(dict.fromkeys(unique_strings + more_strings))
+            
+            for s in more_strings:
+                if s["thread_id"] not in seen:
+                    seen.add(s["thread_id"])
+                    unique_strings.append(s)
+                    if len(unique_strings) >= required_count:
+                        break
+                        
         return unique_strings[:required_count]
+        
     except Exception as e:
         logger.error(f"Error retrieving unique strings: {e}")
         raise
@@ -161,11 +221,15 @@ async def summarize_text(
         # Load and prepare knowledge base
         library_df = pd.read_csv(knowledge_base_path)
         if len(library_df) == 0:
-            logger.info("No papers found, downloading first.")
+            logger.info("No data found, downloading first.")
             get_relevant_content(query, batch_size=batch_size)
             library_df = pd.read_csv(knowledge_base_path)
         
         library_df.columns = ["thread_id", "posted_date_time", "text", "embedding"]
+        library_df['posted_date_time'] = pd.to_datetime(library_df['posted_date_time'])
+        
+        # Filter out rows with very short text
+        library_df = library_df[library_df['text'].str.len() >= 20]
         
         # Get unique related strings
         embedding_provider = providers.get(ModelOperation.EMBEDDING) if providers else None
@@ -180,15 +244,32 @@ async def summarize_text(
         all_chunks = []
         
         # Process each text into chunks
-        for text in unique_strings:
-            chunks = create_chunks(text, 1000, tokenizer)  # Increased chunk size
-            all_chunks.extend(chunks)
+        for item in unique_strings:
+            if len(item['text'].strip()) < 20:  # Skip very short texts
+                continue
+                
+            chunk_text = f"""<temporal_context>
+                Posted: {item['posted_date_time']}
+                Thread: {item['thread_id']}
+                </temporal_context>
+                <content>
+                {item['text']}
+                </content>"""
+            
+            # Clean and validate chunk text
+            chunk_text = clean_chunk_text(chunk_text)
+            chunks = create_chunks(chunk_text, 1000, tokenizer)
+            
+            # Add only valid chunks
+            for chunk in chunks:
+                if is_valid_chunk(chunk["text"]):
+                    all_chunks.append(chunk)
         
         if not all_chunks:
             logger.warning("No valid chunks found to process")
             return [], ""
         
-        logger.info(f"Summarizing {len(all_chunks)} chunks of text")
+        logger.info(f"Summarizing {len(all_chunks)} valid chunks of text")
         
         # Configure worker pool
         if max_workers is None:
@@ -198,7 +279,7 @@ async def summarize_text(
         contexts = []
         chunk_provider = providers.get(ModelOperation.CHUNK_GENERATION) if providers else None
         
-        # Process chunks in batches
+        # Process chunks directly
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = []
             
@@ -234,18 +315,86 @@ async def summarize_text(
         try:
             logger.info("Generating final summary")
             summary_provider = providers.get(ModelOperation.SUMMARIZATION) if providers else None
+            
+            # Get date range from unique strings
+            dates = pd.to_datetime([s['posted_date_time'] for s in unique_strings])
+            start_date = min(dates)
+            end_date = max(dates)
+            
+            # Format temporal context to match the expected template variables
+            temporal_context = {
+                "start_date": start_date.strftime("%Y-%m-%d %H:%M:%S"),
+                "end_date": end_date.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
+            # Format the combined summaries into structured sections
+            formatted_results = []
+            event_map = {}  # Map to store event descriptions
+            event_counter = 1
+            
+            for chunk in summaries:
+                if chunk.strip():
+                    # Extract metrics and analysis from chunk summary
+                    sections = chunk.split("<signal_context>")
+                    if len(sections) > 1:
+                        metrics = sections[0].strip()
+                        analysis = sections[1].strip()
+                        
+                        # Extract key claims and topics for event naming
+                        claims_section = analysis.split("Key claims detected:")
+                        if len(claims_section) > 1:
+                            claim_text = claims_section[1].split("\n")[0].strip()
+                            # Clean and shorten claim for event name
+                            event_name = claim_text.split(".")[0].strip()[:50]  # Take first sentence, limit length
+                            event_name = event_name.replace('"', '').replace("'", "")
+                            event_map[f"event{event_counter}"] = event_name
+                            event_counter += 1
+                        
+                        formatted_results.append(f"<analysis_section>\n{metrics}\n{analysis}\n</analysis_section>")
+            
+            structured_results = "\n\n".join(formatted_results)
+            
+            # Add event mapping to the context
+            context_with_events = f"""
+            {combined_context}
+            
+            <event_mapping>
+            {json.dumps(event_map, indent=2)}
+            </event_mapping>
+            """
+            
             response = agent.generate_summary(
                 query, 
-                combined_summary,
-                context=combined_context,
+                structured_results,
+                context=context_with_events,
+                temporal_context=temporal_context,
                 provider=summary_provider
             )
+            
+            if not response or response.strip() == "":
+                logger.warning("Empty summary response, falling back to structured format")
+                # Create a basic structured summary
+                response = f"""### 1. Temporal Overview
+Time Range: {temporal_context['start_date']} to {temporal_context['end_date']}
+Active Periods: Multiple threads analyzed across the time range
+Thread Distribution: See detailed metrics below
+
+### 2. Thread Analysis
+{structured_results}"""
+            
             return all_chunks, response
             
         except Exception as e:
             logger.error(f"Error generating final summary: {e}")
-            # Return the most relevant summaries as fallback
-            return all_chunks, "\n\n".join(summaries[:3])
+            # Create a structured fallback summary
+            fallback = f"""### 1. Temporal Overview
+Time Range: {start_date.strftime("%Y-%m-%d %H:%M:%S")} to {end_date.strftime("%Y-%m-%d %H:%M:%S")}
+Active Periods: Multiple threads analyzed across the time range
+Thread Distribution: See detailed metrics below
+
+### 2. Thread Analysis
+{combined_summary[:3000]}"""  # Limit length of fallback
+            return all_chunks, fallback
             
     except Exception as e:
         logger.error(f"Error in summarization pipeline: {e}")

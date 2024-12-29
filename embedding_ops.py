@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-CONFIG_PATH = './config_template.ini'
+CONFIG_PATH = './config.ini'
 model_config, app_config = load_config(config_path=CONFIG_PATH)
 agent = KnowledgeAgent(model_config)
 

@@ -14,7 +14,7 @@ handler = logging.StreamHandler()
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-config_path='./config_template.ini'
+config_path='./config.ini'
 config_params = read_config(section='cloud_info',config_path=config_path)
 
 logger = logging.getLogger(__name__)
