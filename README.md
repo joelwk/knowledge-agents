@@ -19,6 +19,12 @@ A text analysis framework implementing a three-stage pipeline architecture for p
   - Automatic fallback mechanisms
   - Environment-aware execution (notebook/terminal)
 
+- **Performance Monitoring (Optional)**:
+  - Literal AI integration for comprehensive monitoring
+  - Thread-level execution tracking
+  - Provider performance metrics
+  - Error pattern analysis
+
 The framework is designed for robust handling of large-scale text analysis tasks, with built-in support for data validation, error recovery, and detailed operational logging. It provides a flexible foundation for building knowledge processing applications with temporal awareness.
 
 ## Supported Models
@@ -43,6 +49,18 @@ Configure your preferred provider in `config.ini`. The system features automatic
   - Dynamic model selection and fallback
   - Standardized cross-provider responses
   - Concurrent batch processing
+
+### Performance Monitoring
+- **Literal AI Integration**:
+  - Thread-level execution tracking
+  - Step-by-step performance metrics
+  - Provider usage patterns
+  - Error rate monitoring
+- **Monitoring Features**:
+  - Automatic OpenAI instrumentation
+  - Custom step tracking
+  - Error pattern analysis
+  - Resource utilization metrics
 
 ### Data Processing
 - **Time-Aware Analysis**:
@@ -89,12 +107,28 @@ Configure your preferred provider in `config.ini`. The system features automatic
    - Copy `config_template.ini` to `config.ini`
    - Add your API keys and model preferences
 
-4. Launch Jupyter Notebook:
+4. Set up monitoring (optional):
+   - Get a Literal AI API key
+   - Set the environment variable:
+     ```python
+     os.environ["LITERAL_API_KEY"] = "your-literal-api-key"
+     ```
+   - Or pass it directly to the run function:
+     ```python
+     chunks, summary = await run_knowledge_agents(
+         query=query,
+         process_new=True,
+         providers=providers,
+         monitor_api_key="your-literal-api-key"
+     )
+     ```
+
+5. Launch Jupyter Notebook:
    ```bash
    jupyter notebook
    ```
 
-5. Navigate to and open `knowledge_workbench.ipynb`
+6. Navigate to and open `knowledge_workbench.ipynb`
 
 ## Running from Terminal
 1. Clone the repository:
@@ -112,10 +146,54 @@ Configure your preferred provider in `config.ini`. The system features automatic
    - Update `config_template.ini`
    - Add your API keys and model preferences
 
-4. Run the main script:
+4. Set up monitoring (optional):
+   ```bash
+   export LITERAL_API_KEY="your-literal-api-key"
+   ```
+
+5. Run the main script:
    ```bash
    python model_ops.py
    ```
+
+## Monitoring Integration
+The framework includes comprehensive performance monitoring through Literal AI integration:
+
+### Features
+- Thread-level execution tracking
+- Step-by-step performance metrics
+- Provider usage patterns
+- Error rate monitoring
+- Resource utilization metrics
+
+### Usage
+1. Enable monitoring by setting the Literal AI API key:
+   ```python
+   os.environ["LITERAL_API_KEY"] = "your-literal-api-key"
+   ```
+
+2. Run with monitoring enabled:
+   ```python
+   chunks, summary = await run_knowledge_agents(
+       query=query,
+       process_new=True,
+       providers=providers,
+       monitor_api_key=os.getenv("LITERAL_API_KEY")
+   )
+   ```
+
+3. Access monitoring data through the Literal AI dashboard:
+   - View thread execution timelines
+   - Analyze provider performance
+   - Track error patterns
+   - Monitor resource usage
+
+### Monitored Operations
+- Embedding generation
+- Content retrieval
+- Chunk analysis
+- Summary generation
+- Error handling and recovery
 
 ## Data Gathering
 For data collection functionality, you can utilize the data gathering tools from the [chanscope-lambda repository](https://github.com/joelwk/chanscope-lambda). If you prefer not to set up a Lambda function, you can use the `gather.py` script directly from that repository for data collection purposes.

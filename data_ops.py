@@ -6,6 +6,13 @@ from data_processing.cloud_handler import load_all_csv_data_from_s3
 import configparser 
 import pandas as pd
 from stratified_ops import split_dataframe
+import logging
+
+# Setup logging
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 config_path = './config.ini'
 config = configparser.ConfigParser()
@@ -79,23 +86,40 @@ def stratify_data(input_path: str, config_path: str, filter_date: str, time_colu
     sampler = Sampler(config_path, filter_date=filter_date, time_column=time_column, strata_column=strata_column, initial_sample_size=initial_sample_size, section=section)
     return sampler.stratified_sample(all_data)
 
-def prepare_data(CONFIGS=CONFIGS, CLOUD_CONFIG=config_path):
+def prepare_data(CONFIGS, CLOUD_CONFIG=config_path):
+    """Prepare data for processing.
+    
+    Args:
+        CONFIGS: AppConfig instance with data paths
+        CLOUD_CONFIG: Path to cloud configuration file
+    """
     # Create directory for all data
-    remove_directory_files(CONFIGS['ROOT_PATH'])
+    remove_directory_files(CONFIGS.root_path)
     # Create directory for all data
-    create_directory_if_not_exists(CONFIGS['ROOT_PATH'])
+    create_directory_if_not_exists(CONFIGS.root_path)
     # Create directory for stratified data
-    create_directory_if_not_exists(CONFIGS['ALL_DATA_STRATIFIED_PATH'])
+    create_directory_if_not_exists(CONFIGS.all_data_stratified_path)
+    # Load data from S3
+    logger.info("Loading all CSV data from S3 bucket: rolling-data, prefix: data")
     # Load and save new data
-    latest_date_processed = CONFIGS["FILTER_DATE"]
-    load_and_save_new_data(latest_date_processed, CONFIGS['ALL_DATA'])
+    latest_date_processed = CONFIGS.filter_date
+    load_and_save_new_data(latest_date_processed, CONFIGS.all_data)
     # Stratify data
-    stratified_data = stratify_data(CONFIGS['ALL_DATA'], CLOUD_CONFIG, CONFIGS["FILTER_DATE"], 'posted_date_time', None, CONFIGS["SAMPLE_SIZE"], 'sampling')
+    stratified_data = stratify_data(
+        CONFIGS.all_data,
+        CLOUD_CONFIG,
+        CONFIGS.filter_date,
+        'posted_date_time',
+        None,
+        int(CONFIGS.sample_size),
+        'sampling'
+    )
     split_dataframe(
         stratified_data, 
         fraction=0.1, 
         stratify_column='posted_date_time', 
-        save_directory=CONFIGS['ALL_DATA_STRATIFIED_PATH'], 
+        save_directory=CONFIGS.all_data_stratified_path, 
         seed=42, 
-        file_format='csv')
+        file_format='csv'
+    )
     return "Data preparation completed."

@@ -1,7 +1,7 @@
 from csv import writer
-from model_ops import KnowledgeAgent, load_config, ModelProvider, ModelOperation
+from model_ops import KnowledgeAgent, load_config, ModelProvider
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd

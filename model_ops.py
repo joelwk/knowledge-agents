@@ -7,6 +7,7 @@ from typing import Optional, List, Dict, Any, Union, Literal
 from enum import Enum
 import yaml
 
+logger = logging.getLogger(__name__)
 # Configuration Models
 class ModelProvider(str, Enum):
     """Supported model providers."""
@@ -35,6 +36,9 @@ class ModelConfig(BaseModel):
     venice_api_key: Optional[str] = None
     venice_summary_model: Optional[str] = None  # Specific model for summaries
     venice_chunk_model: Optional[str] = None    # Specific model for chunks
+
+    # Monitoring
+    literal_api_key: Optional[str] = None
 
     # Default providers for different operations
     default_embedding_provider: ModelProvider = ModelProvider.OPENAI
@@ -84,6 +88,7 @@ def load_config(config_path: str = "./config.ini"):
             openai_api_key=config_parser["keys"]["OPENAI_API_KEY"],
             grok_api_key=config_parser["keys"].get("GROK_API_KEY"),
             venice_api_key=config_parser["keys"].get("VENICE_API_KEY"),
+            literal_api_key=config_parser["keys"].get("LITERAL_API_KEY"),
             default_embedding_provider=config_parser["models"].get("DEFAULT_EMBEDDING_PROVIDER", "openai"),
             default_chunk_provider=config_parser["models"].get("DEFAULT_CHUNK_PROVIDER", "openai"),
             default_summary_provider=config_parser["models"].get("DEFAULT_SUMMARY_PROVIDER", "openai"))
@@ -211,7 +216,7 @@ class KnowledgeAgent:
             logging.warning(f"Default provider not configured, using {provider}")
             
         return provider
-    
+
     def generate_summary(
         self, 
         query: str, 
@@ -284,8 +289,15 @@ class KnowledgeAgent:
         self, 
         content: str,
         provider: Optional[ModelProvider] = None
-    ) -> Dict[str, str]:
-        """Generate chunks using the specified provider."""
+    ) -> Dict[str, Any]:
+        """Generate chunks using the specified provider.
+        
+        Returns:
+            Dict containing:
+            - analysis: Dict with thread_analysis and metrics
+            - context: Dict with key_claims, supporting_text, risk_assessment, viral_potential
+            - metrics: Dict with numeric metrics
+        """
         if provider is None:
             provider = self._get_default_provider(ModelOperation.CHUNK_GENERATION)
             
@@ -313,23 +325,98 @@ class KnowledgeAgent:
             )
                 
             result = response.choices[0].message.content
-            sections = result.split("<generated_context>")
+            
+            # Split on signal_context as per prompt template
+            sections = result.split("<signal_context>")
+            
             if len(sections) > 1:
-                analysis = sections[0].strip()
-                context = sections[1].strip()
-            else:
-                analysis = result
-                context = "No specific context generated."
+                thread_analysis = sections[0].strip()
+                signal_context = sections[1].strip()
                 
-            return {
-                "analysis": analysis,
-                "context": context
-            }
+                # Parse thread analysis metrics
+                metrics = {}
+                for line in thread_analysis.split('\n'):
+                    if '(' in line and ')' in line:
+                        try:
+                            # Extract metrics from format: (t, metric, value, confidence)
+                            metric_str = line[line.find("(")+1:line.find(")")].strip()
+                            parts = [p.strip() for p in metric_str.split(',')]
+                            if len(parts) >= 4:
+                                timestamp, metric_name, value, confidence = parts[:4]
+                                try:
+                                    metrics[metric_name] = float(value)
+                                except (ValueError, TypeError):
+                                    logger.warning(f"Could not convert metric value to float: {value}")
+                        except Exception as e:
+                            logger.warning(f"Failed to parse metric line: {line}, error: {e}")
+                
+                # Parse context sections
+                context_elements = {
+                    "key_claims": [],
+                    "supporting_text": [],
+                    "risk_assessment": [],
+                    "viral_potential": []
+                }
+                
+                current_section = None
+                for line in signal_context.split('\n'):
+                    line = line.strip()
+                    if not line:
+                        continue
+                        
+                    # Check for section headers
+                    lower_line = line.lower()
+                    if "key claims" in lower_line:
+                        current_section = "key_claims"
+                    elif "supporting" in lower_line and "text" in lower_line:
+                        current_section = "supporting_text"
+                    elif "risk" in lower_line and "assessment" in lower_line:
+                        current_section = "risk_assessment"
+                    elif "viral" in lower_line and "potential" in lower_line:
+                        current_section = "viral_potential"
+                    elif current_section and (line.startswith('-') or line.startswith('*')):
+                        # Remove leading dash/asterisk and strip whitespace
+                        content = line[1:].strip()
+                        if content:  # Only add non-empty lines
+                            context_elements[current_section].append(content)
+                
+                return {
+                    "analysis": {
+                        "thread_analysis": thread_analysis,
+                        "metrics": metrics
+                    },
+                    "context": context_elements,
+                    "metrics": {
+                        "sections": len(sections),
+                        "analysis_length": len(thread_analysis),
+                        "context_length": len(signal_context),
+                        **metrics
+                    }
+                }
+            else:
+                # If no signal context found, return basic structure
+                return {
+                    "analysis": {
+                        "thread_analysis": result.strip(),
+                        "metrics": {}
+                    },
+                    "context": {
+                        "key_claims": [],
+                        "supporting_text": [],
+                        "risk_assessment": [],
+                        "viral_potential": []
+                    },
+                    "metrics": {
+                        "sections": 1,
+                        "analysis_length": len(result),
+                        "context_length": 0
+                    }
+                }
             
         except Exception as e:
-            logging.error(f"Error generating chunks with {provider}: {e}")
+            logger.error(f"Error generating chunks with {provider}: {e}")
             if provider != ModelProvider.OPENAI and ModelProvider.OPENAI in self.models:
-                logging.warning(f"Falling back to OpenAI for chunk generation")
+                logger.warning(f"Falling back to OpenAI for chunk generation")
                 return self.generate_chunks(content, provider=ModelProvider.OPENAI)
             raise
 

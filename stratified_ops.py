@@ -1,4 +1,3 @@
-import pandas as pd
 import numpy as np
 import os
 
@@ -55,38 +54,37 @@ def split_dataframe(df, fraction=None, sample_size=None, stratify_column=None,
     subsets = []
 
     # Stratified Split
-    if stratify_column:
+    if stratify_column is not None:
         remaining_df = df.copy()  # Create a copy to avoid modifying the original df
         subsets = []
         while len(remaining_df) >= sample_size:
-            stratified_sample = remaining_df.groupby(stratify_column)[list(remaining_df.columns)] \
-                              .apply(lambda x: x.sample(min(len(x), sample_size), random_state=seed)) \
-                              .reset_index(drop=True)
-            stratified_sample = stratified_sample.head(sample_size)  # Ensure sample size
+            # Group by stratify column and sample proportionally
+            stratified_sample = remaining_df.groupby(stratify_column, group_keys=False).apply(
+                lambda x: x.sample(min(len(x), max(1, int(sample_size * len(x) / len(remaining_df)))))
+            )
+            
+            # Ensure we don't exceed sample size
+            if len(stratified_sample) > sample_size:
+                stratified_sample = stratified_sample.sample(sample_size)
+            
             subsets.append(stratified_sample)
             
-            # Drop the sampled rows by their values, not index, to ensure correctness
-            remaining_df = remaining_df.drop(remaining_df[(remaining_df[stratify_column].isin(stratified_sample[stratify_column]))].index)
+            # Remove sampled rows using index
+            remaining_df = remaining_df.drop(stratified_sample.index)
             
-        # Handle the remaining rows
+        # Handle remaining rows if any
         if len(remaining_df) > 0:
             subsets.append(remaining_df)
-            # Remove sampled rows from the original DataFrame for the next iteration
-            df = df.drop(stratified_sample.index)
-        # Handle the remaining rows
-        if remaining_rows > 0:
-            remaining_sample = df.groupby(stratify_column, group_keys=False).apply(
-                lambda x: x.sample(min(len(x), remaining_rows), random_state=seed)
-            ).reset_index(drop=True)
-            subsets.append(remaining_sample)
     else:
-        # Shuffle the DataFrame (if seed is not set, this will still randomize)
+        # Non-stratified split
         df_shuffled = df.sample(frac=1, random_state=seed)
+        subsets = []
         for i in range(num_splits):
-            subsets.append(df_shuffled.iloc[i*sample_size:(i+1)*sample_size])
-        # If there are remaining rows, append them as a separate subset
-        if remaining_rows > 0:
-            subsets.append(df_shuffled.tail(remaining_rows))
+            start_idx = i * sample_size
+            end_idx = start_idx + sample_size
+            if start_idx < len(df_shuffled):
+                subset = df_shuffled.iloc[start_idx:min(end_idx, len(df_shuffled))]
+                subsets.append(subset)
 
     # Save subsets to directory if specified
     if save_directory:

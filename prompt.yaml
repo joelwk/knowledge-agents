@@ -277,7 +277,7 @@ user_prompts:
          - Identify catalysts (persistence, novelty)
 
       3. **Forecast Generation**:
-         Format: (t_future, event_name, p, [ci_low, ci_high])
+         Format: (t_future, descriptive_event_name, p, [ci_low, ci_high])
          Example: (t+24h, "US research program claims", 0.80, [0.70, 0.90])
          
          Note: Use descriptive event names from the event mapping provided in the context.
@@ -297,13 +297,13 @@ user_prompts:
       ### 2. Thread Analysis
       #### A. Key Metrics
       [Activity & Reach]
-      - (t, "event_name", activity_rate, value, conf)
-      - (t, "event_name", cross_thread_spread, value, conf)
+      - (t, "Descriptive Event Name 1", activity_rate, value, conf)
+      - (t, "Descriptive Event Name 2", cross_thread_spread, value, conf)
 
       [Impact & Quality]
-      - (t, "event_name", influence_score, value, conf)
-      - (t, "event_name", toxicity_level, value, conf)
-      - (t, "event_name", information_novelty, value, conf)
+      - (t, "Descriptive Event Name 1", influence_score, value, conf)
+      - (t, "Descriptive Event Name 2", toxicity_level, value, conf)
+      - (t, "Descriptive Event Name 3", information_novelty, value, conf)
 
       #### B. Pattern Summary
       * Activity: Map event sequences using descriptive names
@@ -314,7 +314,7 @@ user_prompts:
       ### 3. Content Analysis
       #### A. Key Claims
       [Primary Claims]
-      - (t, "event_name", claim, credibility, impact)
+      - (t, "descriptive_event_name", claim, credibility, impact)
       - Supporting evidence: Link to related events by name
       - Cross-references: Connect related events using descriptive names
 
@@ -324,23 +324,23 @@ user_prompts:
       * Moderation: Note intervention needs
 
       #### B. Viral Assessment
-      * Spread Rate: ("event_name", velocity, reach)
+      * Spread Rate: ("descriptive_event_name", velocity, reach)
       * Catalysts: Link trigger events by name
       * Cross-Platform: Note external signals
 
       ### 4. Forecasts
       #### A. 24h Outlook
       [Activity]
-      - (t+24h, "event_name_forecast", p, [ci_low, ci_high])
+      - (t+24h, "descriptive_event_name_forecast", p, [ci_low, ci_high])
       - Expected triggers and impacts
 
       [Risk]
-      - (t+24h, "event_name_risk", p, [ci_low, ci_high])
+      - (t+24h, "descriptive_event_name_risk", p, [ci_low, ci_high])
       - Potential escalation paths
 
       #### B. 72h Trends
       [Patterns]
-      - (t+72h, "event_name_trend", p, [ci_low, ci_high])
+      - (t+72h, "descriptive_event_name_trend", p, [ci_low, ci_high])
       - Pattern evolution forecast
 
       [Interventions]
